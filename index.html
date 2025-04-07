@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Symulacja windy 1:1</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f0f0f0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        gap: 50px;
+        margin: 0;
+      }
+      /* Budynek z piętrami */
+      .building {
+        position: relative;
+        width: 200px;
+        height: 400px;
+        border: 2px solid #000;
+        background: #fff;
+      }
+      .floor {
+        position: absolute;
+        width: 100%;
+        height: 25%;
+        border-bottom: 1px solid #ccc;
+        box-sizing: border-box;
+      }
+      .floor span {
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        font-weight: bold;
+      }
+      /* Kabina windy */
+      .elevator {
+        position: absolute;
+        width: 100%;
+        height: 25%;
+        background: #0140be;
+        transition: top 1s ease-in-out;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        font-size: 1.5rem;
+      }
+      /* Panel sterowania */
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .controls button {
+        padding: 10px;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      .active {
+        background: #ff7a00;
+        color: white;
+      }
+      /* Stopka */
+      .footer {
+        width: 100%;
+        text-align: center;
+        font-size: 2rem;
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Budynek z piętrami -->
+    <div class="building" id="building">
+      <!-- Pozycja pięter: floor 4 (góra) do floor 1 (dół) -->
+      <div class="floor" style="top: 0%"><span>4</span></div>
+      <div class="floor" style="top: 25%"><span>3</span></div>
+      <div class="floor" style="top: 50%"><span>2</span></div>
+      <div class="floor" style="top: 75%"><span>1</span></div>
+      <!-- Kabina windy -->
+      <div class="elevator" id="elevator">Winda</div>
+    </div>
+
+    <!-- Panel sterowania (przyciski w kabinie) -->
+    <div class="controls">
+      <button id="btn4" onclick="pressButton(4)">Piętro 4</button>
+      <button id="btn3" onclick="pressButton(3)">Piętro 3</button>
+      <button id="btn2" onclick="pressButton(2)">Piętro 2</button>
+      <button id="btn1" onclick="pressButton(1)">Piętro 1</button>
+    </div>
+
+    <!-- Stopka -->
+    <footer class="footer">Filip Żelaźnicki 314433</footer>
+
+    <script>
+      // Aktualny stan windy (piętro 1 na początku)
+      let currentFloor = 1;
+      // Tablica przekaźników: indeks 0 odpowiada piętru 1, indeks 3 piętro 4
+      let requests = [false, false, false, false];
+      let isMoving = false;
+      const stopDelay = 2000; // postój na piętrze (2 sekundy)
+      const moveDelay = 1000; // czas przejścia jednego piętra (1 sekunda)
+
+      // Ustawienie pozycji początkowej windy
+      document.getElementById("elevator").style.top = `${
+        (4 - currentFloor) * 25
+      }%`;
+
+      // Funkcja wywoływana przy naciśnięciu przycisku w kabinie
+      function pressButton(floor) {
+        // Jeśli już jesteśmy na danym piętrze lub żądanie jest aktywne, nic nie rób
+        if (currentFloor === floor || requests[floor - 1]) return;
+        // Ustaw przekaźnik dla danego piętra
+        requests[floor - 1] = true;
+        updateButtons();
+        // Uruchom symulację jeśli nie jest już w ruchu
+        if (!isMoving) simulationStep();
+      }
+
+      // Aktualizacja wyglądu przycisków – podświetlenie gdy żądanie jest aktywne
+      function updateButtons() {
+        for (let floor = 1; floor <= 4; floor++) {
+          const btn = document.getElementById("btn" + floor);
+          if (requests[floor - 1]) {
+            btn.classList.add("active");
+          } else {
+            btn.classList.remove("active");
+          }
+        }
+      }
+
+      // Główna pętla symulacji
+      function simulationStep() {
+        // Jeśli winda jest w ruchu, wyjdź z funkcji
+        if (isMoving) return;
+
+        // Jeśli na aktualnym piętrze mamy żądanie, symuluj zatrzymanie (krańcówka)
+        if (requests[currentFloor - 1]) {
+          console.log("Zatrzymano na piętrze " + currentFloor);
+          requests[currentFloor - 1] = false; // reset przekaźnika
+          updateButtons();
+          // Postój – symulacja otwierania drzwi itp.
+          setTimeout(simulationStep, stopDelay);
+          return;
+        }
+
+        // Decyzja o kierunku: szukamy żądań powyżej lub poniżej aktualnego piętra
+        let direction = null;
+        // Sprawdź żądania powyżej (piętra wyższe niż aktualne)
+        for (let i = currentFloor; i < 4; i++) {
+          if (requests[i]) {
+            direction = "up";
+            break;
+          }
+        }
+        // Jeśli nie ma żądań powyżej, sprawdź żądania poniżej
+        if (!direction) {
+          for (let i = currentFloor - 2; i >= 0; i--) {
+            if (requests[i]) {
+              direction = "down";
+              break;
+            }
+          }
+        }
+
+        // Jeśli brak żądań, nie rób nic
+        if (!direction) return;
+
+        // Określ piętro docelowe – poruszamy się o jedno piętro w danym kierunku
+        isMoving = true;
+        let nextFloor;
+        if (direction === "up") {
+          nextFloor = currentFloor + 1;
+        } else if (direction === "down") {
+          nextFloor = currentFloor - 1;
+        }
+
+        // Bezpieczeństwo: krańcówki – nie wychodź poza zakres 1-4
+        if (nextFloor < 1 || nextFloor > 4) {
+          isMoving = false;
+          return;
+        }
+
+        console.log("Ruch " + direction + " do piętra " + nextFloor);
+        currentFloor = nextFloor;
+        // Aktualizacja pozycji windy – im wyższe piętro, tym mniejszy offset top
+        document.getElementById("elevator").style.top = `${
+          (4 - currentFloor) * 25
+        }%`;
+
+        // Po przejściu jednego piętra, symuluj zatrzymanie (czas ruchu)
+        setTimeout(() => {
+          isMoving = false;
+          // Po przyjeździe sprawdź, czy na tym piętrze jest żądanie (krańcówka)
+          simulationStep();
+        }, moveDelay);
+      }
+    </script>
+  </body>
+</html>
